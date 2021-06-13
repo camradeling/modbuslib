@@ -21,7 +21,6 @@ uint16_t calc_crc(uint8_t *arr, uint8_t length)
 //------------------------------------------------------------------------------
 uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack)
 {
-  //MODBUS_HR[MBHR_DISCRETE_OUTPUTS_LOW] = MODBUS_HR[MBHR_DISCRETE_OUTPUTS_LOW]+1;
   if(inPack->data[0] != MODBUS_HR[MBHR_MY_MBADDR] && inPack->data[0] != MB_BROADCAST_ADDR)
     return MODBUS_PACKET_WRONG_ADDR;
   uint16_t tmpCRC = calc_crc(inPack->data, inPack->length - 2);
@@ -93,7 +92,7 @@ void CmdModbus_06(ComMessage* inPack, ComMessage* outPack)
   uint16_t val = ((uint16_t)inPack->data[4] << 8) + inPack->data[5];		// Сохраняемое значение.
   if(addr == MBHR_COMMAND_REG)
   {
-    if(val == CMD_WRITE_FLASH_PARAMETERS_BACKUP)
+    /*if(val == CMD_WRITE_FLASH_PARAMETERS_BACKUP)
     {
       rewr = 1;
     }
@@ -107,16 +106,12 @@ void CmdModbus_06(ComMessage* inPack, ComMessage* outPack)
     else if(val == CMD_REBOOT)
     {
       REBOOT();
-    }
+    }*/
   }
   else
     MODBUS_HR[addr]= val;
   for(int i = 1; i < 6; i++) 
     outPack->data[i] = inPack->data[i];		// Скопируем.
-  if(rewr)
-  {
-    w25_params_write();
-  }
 }
 //------------------------------------------------------------------------------
 void CmdModbus_08(ComMessage* inPack, ComMessage* outPack)
