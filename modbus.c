@@ -1,5 +1,5 @@
 //modbus_config.h file should be created and
-//MODBUS_HR_SPACE_SIZE should be defined in it
+//MBHR_SPACE_SIZE should be defined in it
 //TXRX_BUFFER_SIZE also
 //------------------------------------------------------------------------------
 #include <stdint.h>
@@ -8,7 +8,8 @@
 #include "modbus_config.h"
 #include "modbus.h"
 //------------------------------------------------------------------------------
-uint16_t MODBUS_HR[MODBUS_HR_SPACE_SIZE];
+uint16_t MODBUS_HR[MBHR_SPACE_SIZE];
+uint8_t MODBUS_WRITABLE_MASK[MBHR_SPACE_SIZE/sizeof(uint8_t)+(MBHR_SPACE_SIZE%sizeof(uint8_t))?1:0];
 uint16_t* MyMBAddr=NULL;
 //------------------------------------------------------------------------------
 const uint8_t modbus_crc16H[256] =
@@ -146,7 +147,7 @@ void CmdModbus_03_04(ComMessage* inPack, ComMessage* outPack)
   //
   for(int i = 0; i < Len; i += 2)
   {		// Заполним данные.
-    if(addr >= MODBUS_HR_SPACE_SIZE-1)
+    if(addr >= MBHR_SPACE_SIZE-1)
       continue;
     uint16_t val = MODBUS_HR[addr];
     *(uint16_t*)&outPack->data[3+i] = SWAP16(val);		// Старший байт - первый.
@@ -161,7 +162,7 @@ void CmdModbus_06(ComMessage* inPack, ComMessage* outPack)
   uint8_t rewr = 0;
   outPack->length = 6;		// Длина ответной датаграммы.
   addr=((uint16_t)inPack->data[2] << 8) + inPack->data[3];		// Адрес сохраняемого элемента.
-  if(addr >= MODBUS_HR_SPACE_SIZE-1) 
+  if(addr >= MBHR_SPACE_SIZE-1) 
     return;		// Предохранитель выхода адреса регистра за пределы.
   uint16_t val = ((uint16_t)inPack->data[4] << 8) + inPack->data[5];		// Сохраняемое значение.
   /*if(addr == MBHR_COMMAND_REG)
@@ -191,7 +192,10 @@ void CmdModbus_06(ComMessage* inPack, ComMessage* outPack)
 void CmdModbus_08(ComMessage* inPack, ComMessage* outPack)
 {
   outPack->length = inPack->length-2;
-  memcpy(outPack->data,inPack->data,inPack->length-2);
+  for(int i = 0; i < outPack->length; i++)
+  {
+    outPack->data[i] = inPack->data[i];
+  }
 }
 //------------------------------------------------------------------------------
 //=== <Modbus_16> Запись множества входных регистров ===//
@@ -200,14 +204,14 @@ void CmdModbus_16(ComMessage* inPack, ComMessage* outPack)
   uint16_t addr;
   outPack->length = 6;		// Длина ответной датаграммы.
   addr=((uint16_t)inPack->data[2] << 8) + inPack->data[3];		// Адрес первого сохраняемого элемента.
-  if(addr >= MODBUS_HR_SPACE_SIZE-1) 
+  if(addr >= MBHR_SPACE_SIZE-1) 
     return;		// Предохранитель выхода адреса регистра за пределы.
   uint16_t cnt = inPack->data[5];		// Количество сохраняемых регистров
   for(int i = 1; i < 6; i++) 
     outPack->data[i] = inPack->data[i];		// Скопируем.
   for(int i = 0; i < cnt; i++)
   {		// Заполним данные.
-    if(addr >= MODBUS_HR_SPACE_SIZE-1) 
+    if(addr >= MBHR_SPACE_SIZE-1) 
       continue;		// Предохранитель выхода адреса регистра за пределы.
     MODBUS_HR[addr]=((uint16_t)inPack->data[7+2*i]<<8) + inPack->data[8+2*i];		// Очередное сохраняемое значение.     
     addr++;

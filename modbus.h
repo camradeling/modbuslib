@@ -12,7 +12,7 @@ typedef struct
 }ComMessage;
 //------------------------------------------------------------------------------
 uint16_t* MyMBAddr;
-uint16_t MODBUS_HR[];
+//uint16_t MODBUS_HR[];
 //------------------------------------------------------------------------------
 //return codes
 #define MODBUS_PACKET_VALID_AND_PROCESSED              0
