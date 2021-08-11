@@ -12,12 +12,15 @@ typedef struct
 }ComMessage;
 //------------------------------------------------------------------------------
 uint16_t* MyMBAddr;
-//uint16_t MODBUS_HR[];
+//------------------------------------------------------------------------------
+typedef int (*register_cb)(uint16_t regnum);
 //------------------------------------------------------------------------------
 //return codes
-#define MODBUS_PACKET_VALID_AND_PROCESSED              0
-#define MODBUS_PACKET_WRONG_ADDR                       1
-#define MODBUS_PACKET_WRONG_CRC                        2
+#define MODBUS_PACKET_VALID_AND_PROCESSED               0
+#define MODBUS_PACKET_WRONG_ADDR                        1
+#define MODBUS_PACKET_WRONG_CRC                         2
+#define MODBUS_REGISTER_WRITE_PROTECTED                 3
+#define MODBUS_REGISTER_NUMBER_INVALID                  4
 //------------------------------------------------------------------------------
 #define MB_BROADCAST_ADDR                              0xff
 //------------------------------------------------------------------------------
@@ -25,14 +28,14 @@ uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack);
 //------------------------------------------------------------------------------
 uint16_t calc_crc(uint8_t *arr, uint8_t length);
 //------------------------------------------------------------------------------
-void process_modbus(ComMessage* inPack, ComMessage* outPack);
+int process_modbus(ComMessage* inPack, ComMessage* outPack);
 //------------------------------------------------------------------------------
-void CmdModbus_03_04(ComMessage* inPack, ComMessage* outPack);
+int CmdModbus_03_04(ComMessage* inPack, ComMessage* outPack);
 //------------------------------------------------------------------------------
-void CmdModbus_06(ComMessage* inPack, ComMessage* outPack);
+int CmdModbus_06(ComMessage* inPack, ComMessage* outPack);
 //------------------------------------------------------------------------------
-void CmdModbus_08(ComMessage* inPack, ComMessage* outPack);
+int CmdModbus_08(ComMessage* inPack, ComMessage* outPack);
 //------------------------------------------------------------------------------
-void CmdModbus_16(ComMessage* inPack, ComMessage* outPack);
+int CmdModbus_16(ComMessage* inPack, ComMessage* outPack);
 //------------------------------------------------------------------------------
 #endif /*MODBUS_H*/

@@ -1,6 +1,8 @@
 //modbus_config.h file should be created and
-//MBHR_SPACE_SIZE should be defined in it
-//TXRX_BUFFER_SIZE also
+//MBHR_SPACE_SIZE and
+//TXRX_BUFFER_SIZE should be defined in it
+//also MODBUS_HR and 
+//MODBUS_WRITABLE_MASK array should be added as extern in the progam
 //------------------------------------------------------------------------------
 #include <stdint.h>
 #include <stddef.h>
@@ -10,7 +12,9 @@
 //------------------------------------------------------------------------------
 uint16_t MODBUS_HR[MBHR_SPACE_SIZE];
 uint8_t MODBUS_WRITABLE_MASK[MBHR_SPACE_SIZE/sizeof(uint8_t)+(MBHR_SPACE_SIZE%sizeof(uint8_t))?1:0];
-uint16_t* MyMBAddr=NULL;
+uint16_t* MyMBAddr=NULL; // main program may or may not initialise it
+register_cb isregwrtbl_cb = NULL; // main program may or may not initialise it
+register_cb regwr_cb = NULL; // main program may or may not initialise it
 //------------------------------------------------------------------------------
 const uint8_t modbus_crc16H[256] =
 {
@@ -102,118 +106,124 @@ uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack)
   uint16_t tmpCRC = calc_crc(inPack->data, inPack->length - 2);
   if(tmpCRC != *(uint16_t*)&inPack->data[inPack->length - 2])
      return MODBUS_PACKET_WRONG_CRC;
-  process_modbus(inPack, outPack);
-  tmpCRC = calc_crc(outPack->data, outPack->length);
-  *(uint16_t*)&outPack->data[outPack->length] = tmpCRC;
-  outPack->length += 2;
-  return MODBUS_PACKET_VALID_AND_PROCESSED;
+  int res = process_modbus(inPack, outPack);
+  if(res == MODBUS_PACKET_VALID_AND_PROCESSED)
+  {
+    tmpCRC = calc_crc(outPack->data, outPack->length);
+    *(uint16_t*)&outPack->data[outPack->length] = tmpCRC;
+    outPack->length += 2;
+  }
+  return res;
 }
 //------------------------------------------------------------------------------
 //=== Анализ Modbus-команды ===//
-void process_modbus(ComMessage* inPack, ComMessage* outPack)
+int process_modbus(ComMessage* inPack, ComMessage* outPack)
 {
+  int res = MODBUS_PACKET_VALID_AND_PROCESSED;
   outPack->data[0] = inPack->data[0];
   outPack->data[1] = inPack->data[1];
   switch(inPack->data[1])
   {		// Байт команды.
-  case 3:		// <03> Чтение регистров хранения.
-  case 4:		// <04> Чтение входных регистров.
-    CmdModbus_03_04(inPack, outPack);
+  case 3:		// <03> holding registers read.
+  case 4:		// <04> input registers read.
+    res = CmdModbus_03_04(inPack, outPack);
     break;
-  case 6:		// <06> Запись одного регистра хранения.
-    CmdModbus_06(inPack, outPack);
+  case 6:		// <06> single holding register write.
+    res = CmdModbus_06(inPack, outPack);
     break;
   case 8:   // <08> loopback
-    CmdModbus_08(inPack, outPack);
+    res = CmdModbus_08(inPack, outPack);
     break;
-  case 16:		// <16> Запись множества входных регистров.
-    CmdModbus_16(inPack, outPack);
+  case 16:		// <16> multiple holding registers write.
+    res = CmdModbus_16(inPack, outPack);
     break;
   default:
     break;
   }
+  return res;
 }
 //------------------------------------------------------------------------------
-//=== <Modbus_03_04> Чтение регистров хранения/Чтение входных регистров ===//
-void CmdModbus_03_04(ComMessage* inPack, ComMessage* outPack)
+//=== <Modbus_03_04> holding/input registers read ===//
+int CmdModbus_03_04(ComMessage* inPack, ComMessage* outPack)
 {
   uint16_t Len, addr;
-  Len = 2*(inPack->data[5]+((uint16_t)inPack->data[4] << 8));		// Количество байт возвращаемых данных, четное.
+  Len = 2*(inPack->data[5]+((uint16_t)inPack->data[4] << 8));		// bytes to read
   if(Len >= TXRX_BUFFER_SIZE - 3) 
-    Len = TXRX_BUFFER_SIZE-4;		// Предохранитель.
-  addr=((uint16_t)inPack->data[2] << 8) + inPack->data[3];		// Адрес первого читаемого элемента.
-  outPack->data[2] = Len;		// Четное количество байт данных.
-  outPack->length = 3 + Len;		// Длина ответной датаграммы - адрес, функция, количество, данные.
+    Len = TXRX_BUFFER_SIZE-4;		// preventing segfault
+  addr=((uint16_t)inPack->data[2] << 8) + inPack->data[3];		// first register to read
+  if((addr + Len/2) >= MBHR_SPACE_SIZE-1)
+    return MODBUS_REGISTER_NUMBER_INVALID;
+  outPack->data[2] = Len;		// number of bytes.
+  outPack->length = 3 + Len;		// reply length
   //
   for(int i = 0; i < Len; i += 2)
-  {		// Заполним данные.
-    if(addr >= MBHR_SPACE_SIZE-1)
-      continue;
+  {		// filling data
     uint16_t val = MODBUS_HR[addr];
-    *(uint16_t*)&outPack->data[3+i] = SWAP16(val);		// Старший байт - первый.
+    *(uint16_t*)&outPack->data[3+i] = SWAP16(val);		// Big endian here
     addr++;
   }
+  return MODBUS_PACKET_VALID_AND_PROCESSED;
 }
 //------------------------------------------------------------------------------
-//=== <Modbus_06> Запись одного регистра хранения ===//
-void CmdModbus_06(ComMessage* inPack, ComMessage* outPack)
+//=== <Modbus_06> single holding register write ===//
+int CmdModbus_06(ComMessage* inPack, ComMessage* outPack)
 {
   uint16_t Len, addr;
   uint8_t rewr = 0;
-  outPack->length = 6;		// Длина ответной датаграммы.
-  addr=((uint16_t)inPack->data[2] << 8) + inPack->data[3];		// Адрес сохраняемого элемента.
+  outPack->length = 6;		// reply length
+  addr=((uint16_t)inPack->data[2] << 8) + inPack->data[3];		// address to write
   if(addr >= MBHR_SPACE_SIZE-1) 
-    return;		// Предохранитель выхода адреса регистра за пределы.
-  uint16_t val = ((uint16_t)inPack->data[4] << 8) + inPack->data[5];		// Сохраняемое значение.
-  /*if(addr == MBHR_COMMAND_REG)
-  {
-    if(val == CMD_WRITE_FLASH_PARAMETERS_BACKUP)
-    {
-      rewr = 1;
-    }
-    else if(val == CMD_REWRITE_FLASH)
-    {
-      uint32_t dest = (uint32_t)reflash;
-      for(int i = 0; i < 1024; i++)
-        *(uint8_t*)(RAM_BOOT + i) = *(uint8_t*)(dest - 1 + i);
-      ((void(*)(void))(RAM_BOOT + 1))();
-    }
-    else if(val == CMD_REBOOT)
-    {
-      REBOOT();
-    }
-  }
-  else*/
+    return MODBUS_REGISTER_NUMBER_INVALID;		// preventing segfault  
+  int wrtbl=1;
+  if(isregwrtbl_cb)
+    wrtbl = isregwrtbl_cb(addr);
+  if(!wrtbl)
+    return MODBUS_REGISTER_WRITE_PROTECTED;
+  uint16_t val = ((uint16_t)inPack->data[4] << 8) + inPack->data[5];		// value to write
   MODBUS_HR[addr]= val;
+  if(regwr_cb)
+    regwr_cb(addr);
   for(int i = 1; i < 6; i++) 
-    outPack->data[i] = inPack->data[i];		// Скопируем.
+    outPack->data[i] = inPack->data[i];		// copy some bytes to reply
+  return MODBUS_PACKET_VALID_AND_PROCESSED;
 }
 //------------------------------------------------------------------------------
-void CmdModbus_08(ComMessage* inPack, ComMessage* outPack)
+//=== <Modbus_08> loopback ===//
+int CmdModbus_08(ComMessage* inPack, ComMessage* outPack)
 {
   outPack->length = inPack->length-2;
   for(int i = 0; i < outPack->length; i++)
   {
     outPack->data[i] = inPack->data[i];
   }
+  return MODBUS_PACKET_VALID_AND_PROCESSED;
 }
 //------------------------------------------------------------------------------
-//=== <Modbus_16> Запись множества входных регистров ===//
-void CmdModbus_16(ComMessage* inPack, ComMessage* outPack)
+//=== <Modbus_16> multiple holding registers write ===//
+int CmdModbus_16(ComMessage* inPack, ComMessage* outPack)
 {
   uint16_t addr;
-  outPack->length = 6;		// Длина ответной датаграммы.
-  addr=((uint16_t)inPack->data[2] << 8) + inPack->data[3];		// Адрес первого сохраняемого элемента.
+  outPack->length = 6;		// reply length
+  addr=((uint16_t)inPack->data[2] << 8) + inPack->data[3];		// first register to copy
   if(addr >= MBHR_SPACE_SIZE-1) 
-    return;		// Предохранитель выхода адреса регистра за пределы.
-  uint16_t cnt = inPack->data[5];		// Количество сохраняемых регистров
+    return MODBUS_REGISTER_NUMBER_INVALID;		// preventing segfault
+  uint16_t cnt = inPack->data[5];		// registers number
+  if(addr + cnt >= MBHR_SPACE_SIZE-1) 
+      return MODBUS_REGISTER_NUMBER_INVALID;    // preventing segfault
   for(int i = 1; i < 6; i++) 
-    outPack->data[i] = inPack->data[i];		// Скопируем.
+    outPack->data[i] = inPack->data[i];		// copy to reply
   for(int i = 0; i < cnt; i++)
-  {		// Заполним данные.
-    if(addr >= MBHR_SPACE_SIZE-1) 
-      continue;		// Предохранитель выхода адреса регистра за пределы.
-    MODBUS_HR[addr]=((uint16_t)inPack->data[7+2*i]<<8) + inPack->data[8+2*i];		// Очередное сохраняемое значение.     
+  {		// filling the date.
+    int wrtbl=1;
+    if(isregwrtbl_cb)
+      wrtbl = isregwrtbl_cb(addr);
+    if(!wrtbl)
+      return MODBUS_REGISTER_WRITE_PROTECTED;
+    MODBUS_HR[addr]=((uint16_t)inPack->data[7+2*i]<<8) + inPack->data[8+2*i];		// and another register value
+    if(regwr_cb)
+      regwr_cb(addr);
     addr++;
   }
+  return MODBUS_PACKET_VALID_AND_PROCESSED;
 }
+//------------------------------------------------------------------------------
