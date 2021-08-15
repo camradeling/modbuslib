@@ -169,7 +169,7 @@ int CmdModbus_03_04(ComMessage* inPack, ComMessage* outPack)
 int CmdModbus_06(ComMessage* inPack, ComMessage* outPack)
 {
   uint16_t Len, addr;
-  uint8_t rewr = 0;
+  uint8_t res = 0;
   outPack->length = 6;		// reply length
   addr=((uint16_t)inPack->data[2] << 8) + inPack->data[3];		// address to write
   if(addr >= MBHR_SPACE_SIZE-1) 
@@ -182,7 +182,11 @@ int CmdModbus_06(ComMessage* inPack, ComMessage* outPack)
   uint16_t val = ((uint16_t)inPack->data[4] << 8) + inPack->data[5];		// value to write
   MODBUS_HR[addr]= val;
   if(regwr_cb)
-    regwr_cb(addr);
+    res = regwr_cb(addr);
+  if(res)//if callback failed
+  {
+
+  }
   for(int i = 1; i < 6; i++) 
     outPack->data[i] = inPack->data[i];		// copy some bytes to reply
   return MODBUS_PACKET_VALID_AND_PROCESSED;
@@ -203,6 +207,7 @@ int CmdModbus_08(ComMessage* inPack, ComMessage* outPack)
 int CmdModbus_16(ComMessage* inPack, ComMessage* outPack)
 {
   uint16_t addr;
+  int res = 0;
   outPack->length = 6;		// reply length
   addr=((uint16_t)inPack->data[2] << 8) + inPack->data[3];		// first register to copy
   if(addr >= MBHR_SPACE_SIZE-1) 
@@ -210,8 +215,6 @@ int CmdModbus_16(ComMessage* inPack, ComMessage* outPack)
   uint16_t cnt = inPack->data[5];		// registers number
   if(addr + cnt >= MBHR_SPACE_SIZE-1) 
       return MODBUS_REGISTER_NUMBER_INVALID;    // preventing segfault
-  for(int i = 1; i < 6; i++) 
-    outPack->data[i] = inPack->data[i];		// copy to reply
   for(int i = 0; i < cnt; i++)
   {		// filling the date.
     int wrtbl=1;
@@ -221,9 +224,15 @@ int CmdModbus_16(ComMessage* inPack, ComMessage* outPack)
       return MODBUS_REGISTER_WRITE_PROTECTED;
     MODBUS_HR[addr]=((uint16_t)inPack->data[7+2*i]<<8) + inPack->data[8+2*i];		// and another register value
     if(regwr_cb)
-      regwr_cb(addr);
+      res = regwr_cb(addr);
+    if(res)//if callback failed
+    {
+
+    }
     addr++;
   }
+  for(int i = 1; i < 6; i++) 
+    outPack->data[i] = inPack->data[i];   // copy to reply
   return MODBUS_PACKET_VALID_AND_PROCESSED;
 }
 //------------------------------------------------------------------------------
