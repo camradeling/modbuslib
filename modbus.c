@@ -151,7 +151,7 @@ int CmdModbus_03_04(ComMessage* inPack, ComMessage* outPack)
   if(Len >= TXRX_BUFFER_SIZE - 3) 
     Len = TXRX_BUFFER_SIZE-4;		// preventing segfault
   addr=((uint16_t)inPack->data[2] << 8) + inPack->data[3];		// first register to read
-  if((addr + Len/2) >= MBHR_SPACE_SIZE-1)
+  if((addr + Len/2) > MBHR_SPACE_SIZE)
     return MODBUS_REGISTER_NUMBER_INVALID;
   outPack->data[2] = Len;		// number of bytes.
   outPack->length = 3 + Len;		// reply length
@@ -172,7 +172,7 @@ int CmdModbus_06(ComMessage* inPack, ComMessage* outPack)
   uint8_t res = 0;
   outPack->length = 6;		// reply length
   addr=((uint16_t)inPack->data[2] << 8) + inPack->data[3];		// address to write
-  if(addr >= MBHR_SPACE_SIZE-1) 
+  if(addr > MBHR_SPACE_SIZE-1) 
     return MODBUS_REGISTER_NUMBER_INVALID;		// preventing segfault  
   int wrtbl=1;
   if(isregwrtbl_cb)
@@ -210,10 +210,10 @@ int CmdModbus_16(ComMessage* inPack, ComMessage* outPack)
   int res = 0;
   outPack->length = 6;		// reply length
   addr=((uint16_t)inPack->data[2] << 8) + inPack->data[3];		// first register to copy
-  if(addr >= MBHR_SPACE_SIZE-1) 
+  if(addr > MBHR_SPACE_SIZE-1) 
     return MODBUS_REGISTER_NUMBER_INVALID;		// preventing segfault
-  uint16_t cnt = inPack->data[5];		// registers number
-  if(addr + cnt >= MBHR_SPACE_SIZE-1) 
+  uint16_t cnt = inPack->data[4];		// registers number
+  if(addr + cnt > MBHR_SPACE_SIZE) 
       return MODBUS_REGISTER_NUMBER_INVALID;    // preventing segfault
   for(int i = 0; i < cnt; i++)
   {		// filling the date.
@@ -222,13 +222,11 @@ int CmdModbus_16(ComMessage* inPack, ComMessage* outPack)
       wrtbl = isregwrtbl_cb(addr);
     if(!wrtbl)
       return MODBUS_REGISTER_WRITE_PROTECTED;
-    MODBUS_HR[addr]=((uint16_t)inPack->data[7+2*i]<<8) + inPack->data[8+2*i];		// and another register value
+    MODBUS_HR[addr]=((uint16_t)inPack->data[5+2*i]<<8) + inPack->data[6+2*i];		// and another register value
     if(regwr_cb)
       res = regwr_cb(addr);
     if(res)//if callback failed
-    {
-
-    }
+      return MODBUS_REGISTER_WRITE_CALLBACK_FAILED;
     addr++;
   }
   for(int i = 1; i < 6; i++) 
