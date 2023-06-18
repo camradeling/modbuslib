@@ -25,6 +25,7 @@ typedef int (*register_cb)(uint16_t regnum);
 //------------------------------------------------------------------------------
 #define MB_BROADCAST_ADDR                              0xff
 #define MODBUS_03_DATASTART_IND							3
+#define MAX_REGS_BATCH_WRITE                64
 //------------------------------------------------------------------------------
 uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack);
 //------------------------------------------------------------------------------
