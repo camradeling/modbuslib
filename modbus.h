@@ -24,6 +24,7 @@ typedef int (*register_cb)(uint16_t regnum);
 #define MODBUS_REGISTER_WRITE_CALLBACK_FAILED           5
 //------------------------------------------------------------------------------
 #define MB_BROADCAST_ADDR                              0xff
+#define MODBUS_03_LENGTH_IND                2
 #define MODBUS_03_DATASTART_IND							3
 #define MAX_REGS_BATCH_WRITE                64
 //------------------------------------------------------------------------------
