@@ -2,7 +2,7 @@
 //MBHR_SPACE_SIZE and
 //TXRX_BUFFER_SIZE should be defined in it
 //also MODBUS_HR and 
-//MODBUS_WRITABLE_MASK array should be added as extern in the progam
+//MODBUS_WRITABLE_MASK array may be added as extern in the progam
 //------------------------------------------------------------------------------
 #include <stdint.h>
 #include <stddef.h>
@@ -11,7 +11,9 @@
 #include "modbus.h"
 //------------------------------------------------------------------------------
 uint16_t MODBUS_HR[MBHR_SPACE_SIZE];
+#ifdef WRITABLE_MASK_ARRAY_DECLARATION
 uint8_t MODBUS_WRITABLE_MASK[MBHR_SPACE_SIZE/sizeof(uint8_t)+(MBHR_SPACE_SIZE%sizeof(uint8_t))?1:0];
+#endif
 uint16_t* MyMBAddr=NULL; // main program may or may not initialise it
 register_cb isregwrtbl_cb = NULL; // main program may or may not initialise it
 register_cb regwr_cb = NULL; // main program may or may not initialise it
