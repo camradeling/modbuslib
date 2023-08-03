@@ -28,6 +28,11 @@ typedef int (*register_cb)(uint16_t regnum);
 #define MODBUS_03_DATASTART_IND							3
 #define MAX_REGS_BATCH_WRITE                64
 //------------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+//------------------------------------------------------------------------------
 uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack);
 //------------------------------------------------------------------------------
 uint16_t calc_crc(uint8_t *arr, uint8_t length);
@@ -41,5 +46,9 @@ int CmdModbus_06(ComMessage* inPack, ComMessage* outPack);
 int CmdModbus_08(ComMessage* inPack, ComMessage* outPack);
 //------------------------------------------------------------------------------
 int CmdModbus_16(ComMessage* inPack, ComMessage* outPack);
+//------------------------------------------------------------------------------
+#ifdef __cplusplus
+}
+#endif
 //------------------------------------------------------------------------------
 #endif /*MODBUS_H*/
