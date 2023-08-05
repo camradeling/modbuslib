@@ -3,13 +3,13 @@
 //TXRX_BUFFER_SIZE should be defined in it
 //also MODBUS_HR and 
 //MODBUS_WRITABLE_MASK array may be added as extern in the progam
-//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
 #include <stdint.h>
 #include <stddef.h>
-//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
 #include "modbus_config.h"
 #include "modbus.h"
-//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
 uint16_t MODBUS_HR[MBHR_SPACE_SIZE];
 #ifdef WRITABLE_MASK_ARRAY_DECLARATION
 uint8_t MODBUS_WRITABLE_MASK[MBHR_SPACE_SIZE/sizeof(uint8_t)+(MBHR_SPACE_SIZE%sizeof(uint8_t))?1:0];
@@ -17,17 +17,17 @@ uint8_t MODBUS_WRITABLE_MASK[MBHR_SPACE_SIZE/sizeof(uint8_t)+(MBHR_SPACE_SIZE%si
 uint16_t* MyMBAddr=NULL; // main program may or may not initialise it
 register_cb isregwrtbl_cb = NULL; // main program may or may not initialise it
 register_cb regwr_cb = NULL; // main program may or may not initialise it
-//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
 extern uint8_t modbus_crc16H[];
-//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
 extern uint8_t modbus_crc16L[];
-//------------------------------------------------------------------------------
-uint16_t calc_crc(uint8_t *arr, uint8_t length) 
+//------------------------------------------------------------------------------------------------------------------------------
+uint16_t calc_crc_buf(uint16_t startvalue, uint8_t *arr, int length) 
 {
   uint8_t ind;
-  uint8_t i;
-  uint8_t cksumHigh = 0xFF;
-  uint8_t cksumLow = 0xFF;
+  uint16_t i;
+  uint8_t cksumHigh = (startvalue & 0xFF00) >> 8;
+  uint8_t cksumLow = startvalue & 0xFF;
   if(length > 0) 
   {
     for(i=0; i<length; i++) 
@@ -39,7 +39,7 @@ uint16_t calc_crc(uint8_t *arr, uint8_t length)
   }
   return cksumLow |(cksumHigh << 8);
 }
-//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
 uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack)
 {
   if(MyMBAddr != NULL)
@@ -49,19 +49,19 @@ uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack)
   }
   else if(inPack->data[0] != MB_BROADCAST_ADDR)
     return MODBUS_PACKET_WRONG_ADDR;
-  uint16_t tmpCRC = calc_crc(inPack->data, inPack->length - 2);
+  uint16_t tmpCRC = calc_crc_buf(0xFFFF, inPack->data, inPack->length - 2);
   if(tmpCRC != *(uint16_t*)&inPack->data[inPack->length - 2])
      return MODBUS_PACKET_WRONG_CRC;
   int res = process_modbus(inPack, outPack);
   if(res == MODBUS_PACKET_VALID_AND_PROCESSED)
   {
-    tmpCRC = calc_crc(outPack->data, outPack->length);
+    tmpCRC = calc_crc_buf(0xFFFF, outPack->data, outPack->length);
     *(uint16_t*)&outPack->data[outPack->length] = tmpCRC;
     outPack->length += 2;
   }
   return res;
 }
-//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
 //=== Анализ Modbus-команды ===//
 int process_modbus(ComMessage* inPack, ComMessage* outPack)
 {
@@ -88,7 +88,7 @@ int process_modbus(ComMessage* inPack, ComMessage* outPack)
   }
   return res;
 }
-//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
 //=== <Modbus_03_04> holding/input registers read ===//
 int CmdModbus_03_04(ComMessage* inPack, ComMessage* outPack)
 {
@@ -110,7 +110,7 @@ int CmdModbus_03_04(ComMessage* inPack, ComMessage* outPack)
   }
   return MODBUS_PACKET_VALID_AND_PROCESSED;
 }
-//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
 //=== <Modbus_06> single holding register write ===//
 int CmdModbus_06(ComMessage* inPack, ComMessage* outPack)
 {
@@ -137,7 +137,7 @@ int CmdModbus_06(ComMessage* inPack, ComMessage* outPack)
     outPack->data[i] = inPack->data[i];		// copy some bytes to reply
   return MODBUS_PACKET_VALID_AND_PROCESSED;
 }
-//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
 //=== <Modbus_08> loopback ===//
 int CmdModbus_08(ComMessage* inPack, ComMessage* outPack)
 {
@@ -148,7 +148,7 @@ int CmdModbus_08(ComMessage* inPack, ComMessage* outPack)
   }
   return MODBUS_PACKET_VALID_AND_PROCESSED;
 }
-//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
 //=== <Modbus_16> multiple holding registers write ===//
 int CmdModbus_16(ComMessage* inPack, ComMessage* outPack)
 {
@@ -179,4 +179,4 @@ int CmdModbus_16(ComMessage* inPack, ComMessage* outPack)
     outPack->data[i] = inPack->data[i];   // copy to reply
   return MODBUS_PACKET_VALID_AND_PROCESSED;
 }
-//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
