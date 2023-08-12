@@ -25,7 +25,7 @@ extern uint8_t modbus_crc16L[];
 uint16_t calc_crc_buf(uint16_t startvalue, uint8_t *arr, int length) 
 {
   uint8_t ind;
-  uint16_t i;
+  int i;
   uint8_t cksumHigh = (startvalue & 0xFF00) >> 8;
   uint8_t cksumLow = startvalue & 0xFF;
   if(length > 0) 
