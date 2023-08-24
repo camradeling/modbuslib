@@ -7,8 +7,8 @@
 //------------------------------------------------------------------------------
 typedef struct
 {
-  uint8_t data[TXRX_BUFFER_SIZE];
-  uint16_t length;
+    uint8_t data[TXRX_BUFFER_SIZE];
+    uint16_t length;
 }ComMessage;
 //------------------------------------------------------------------------------
 typedef int (*register_cb)(uint16_t regnum);
@@ -24,6 +24,7 @@ typedef int (*register_cb)(uint16_t regnum);
 #define MB_BROADCAST_ADDR                              0xff
 #define MODBUS_03_LENGTH_IND                2
 #define MODBUS_03_DATASTART_IND							3
+#define MODBUS_06_DATASTART_IND             4
 #define MAX_REGS_BATCH_WRITE                64
 //------------------------------------------------------------------------------
 #ifdef __cplusplus
