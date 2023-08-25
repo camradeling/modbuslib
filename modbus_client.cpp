@@ -1,4 +1,5 @@
 #include "modbus_client.h"
+#include "modbus.h"
 //----------------------------------------------------------------------------------------------------------------------
 extern uint8_t modbus_crc16H[];
 extern uint8_t modbus_crc16L[];
