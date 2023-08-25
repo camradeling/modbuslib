@@ -4,7 +4,7 @@
 extern uint8_t modbus_crc16H[];
 extern uint8_t modbus_crc16L[];
 //----------------------------------------------------------------------------------------------------------------------
-uint16_t ModbusClient::calc_crc(uint8_t *arr, uint8_t length) 
+uint16_t ModbusClient::calc_crc(uint8_t *arr, int length) 
 {
     return calc_crc_buf(0xFFFF, arr, length);
 }
@@ -19,6 +19,9 @@ std::vector<uint8_t> ModbusClient::build_write_reg_06(uint8_t addr, uint16_t reg
     data.push_back((val & 0xff00) >> 8);
     data.push_back(val & 0x00ff);
     uint16_t crc = calc_crc(data.data(), data.size());
+#ifndef MODBUS_CRC_LITTLE_ENDIAN
+    crc = SWAP16(crc);
+#endif
     data.push_back(((uint8_t*)&crc)[0]);
     data.push_back(((uint8_t*)&crc)[1]);
     return data;
@@ -30,6 +33,9 @@ std::vector<uint8_t> ModbusClient::build_loop_08(uint8_t addr)
     data.push_back(addr);
     data.push_back(0x08);
     uint16_t crc = calc_crc(data.data(), data.size());
+#ifndef MODBUS_CRC_LITTLE_ENDIAN
+    crc = SWAP16(crc);
+#endif
     data.push_back(((uint8_t*)&crc)[0]);
     data.push_back(((uint8_t*)&crc)[1]);
     return data;
@@ -45,6 +51,9 @@ std::vector<uint8_t> ModbusClient::build_read_03(uint8_t addr, uint16_t reg,uint
     data.push_back((cnt & 0xff00) >> 8);
     data.push_back(cnt & 0x00ff);
     uint16_t crc = calc_crc(data.data(), data.size());
+#ifndef MODBUS_CRC_LITTLE_ENDIAN
+    crc = SWAP16(crc);
+#endif
     data.push_back(((uint8_t*)&crc)[0]);
     data.push_back(((uint8_t*)&crc)[1]);
     return data;
@@ -64,6 +73,9 @@ std::vector<uint8_t> ModbusClient::build_write_multreg_16(uint8_t addr, uint16_t
         data.push_back(val & 0x00ff);
     }
     uint16_t crc = calc_crc(data.data(), data.size());
+#ifndef MODBUS_CRC_LITTLE_ENDIAN
+    crc = SWAP16(crc);
+#endif
     data.push_back(((uint8_t*)&crc)[0]);
     data.push_back(((uint8_t*)&crc)[1]);
     return data;

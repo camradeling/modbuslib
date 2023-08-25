@@ -80,11 +80,7 @@ uint16_t calc_crc_buf(uint16_t startvalue, uint8_t *arr, int length)
             cksumLow = modbus_crc16L[ind];
         }
     }
-    uint16_t result = cksumLow |((uint16_t)cksumHigh << 8);
-#ifndef MODBUS_CRC_LITTLE_ENDIAN
-    result = SWAP16(result);
-#endif
-    return result;
+    return (cksumLow |(cksumHigh << 8));
 }
 //----------------------------------------------------------------------------------------------------------------------
 #ifdef __cplusplus

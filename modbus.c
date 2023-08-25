@@ -32,12 +32,18 @@ uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack)
     else if(inPack->data[0] != MB_BROADCAST_ADDR)
         return MODBUS_PACKET_WRONG_ADDR;
     uint16_t tmpCRC = calc_crc_buf(0xFFFF, inPack->data, inPack->length - 2);
+#ifndef MODBUS_CRC_LITTLE_ENDIAN
+    tmpCRC = SWAP16(tmpCRC);
+#endif
     if(tmpCRC != *(uint16_t*)&inPack->data[inPack->length - 2])
         return MODBUS_PACKET_WRONG_CRC;
     int res = process_modbus(inPack, outPack);
     if(res == MODBUS_PACKET_VALID_AND_PROCESSED)
     {
         tmpCRC = calc_crc_buf(0xFFFF, outPack->data, outPack->length);
+#ifndef MODBUS_CRC_LITTLE_ENDIAN
+        tmpCRC = SWAP16(tmpCRC);
+#endif
         *(uint16_t*)&outPack->data[outPack->length] = tmpCRC;
         outPack->length += 2;
     }
