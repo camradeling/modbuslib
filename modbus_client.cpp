@@ -5,7 +5,7 @@ extern uint8_t modbus_crc16L[];
 //----------------------------------------------------------------------------------------------------------------------
 uint16_t ModbusClient::calc_crc(uint8_t *arr, uint8_t length) 
 {
-    return calc_crc_buf(0xFFFF, uint8_t *arr, int length);
+    return calc_crc_buf(0xFFFF, arr, length);
 }
 //----------------------------------------------------------------------------------------------------------------------
 std::vector<uint8_t> ModbusClient::build_write_reg_06(uint8_t addr, uint16_t reg,uint16_t val)
