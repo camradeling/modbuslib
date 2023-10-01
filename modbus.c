@@ -22,23 +22,36 @@ extern uint8_t modbus_crc16H[];
 //------------------------------------------------------------------------------------------------------------------------------
 extern uint8_t modbus_crc16L[];
 //------------------------------------------------------------------------------------------------------------------------------
-uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack)
+uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack, int pdu_type)
 {
+    int offset = 0;
+    if(pdu_type == MODBUS_TCP_PDU_TYPE)
+        offset = MODBUS_TCP_HEADER_OFFSET;
     if(MyMBAddr != NULL)
     {
-        if(inPack->data[0] != *MyMBAddr && inPack->data[0] != MB_BROADCAST_ADDR)
+        if(inPack->data[0+offset] != *MyMBAddr && inPack->data[0+offset] != MB_BROADCAST_ADDR)
             return MODBUS_PACKET_WRONG_ADDR;
     }
-    else if(inPack->data[0] != MB_BROADCAST_ADDR)
+    else if(inPack->data[0+offset] != MB_BROADCAST_ADDR)
         return MODBUS_PACKET_WRONG_ADDR;
-    uint16_t tmpCRC = calc_crc_buf(0xFFFF, inPack->data, inPack->length - 2);
+    uint16_t tmpCRC;
+    if(pdu_type != MODBUS_TCP_PDU_TYPE)
+    {
+        tmpCRC = calc_crc_buf(0xFFFF, inPack->data, inPack->length - 2);
 #ifndef MODBUS_CRC_LITTLE_ENDIAN
-    tmpCRC = SWAP16(tmpCRC);
+        tmpCRC = SWAP16(tmpCRC);
 #endif
-    if(tmpCRC != *(uint16_t*)&inPack->data[inPack->length - 2])
-        return MODBUS_PACKET_WRONG_CRC;
-    int res = process_modbus(inPack, outPack);
-    if(res == MODBUS_PACKET_VALID_AND_PROCESSED)
+        if(tmpCRC != *(uint16_t*)&inPack->data[inPack->length - 2])
+            return MODBUS_PACKET_WRONG_CRC;
+    }
+    int res = process_modbus(inPack, outPack, pdu_type);
+    if(pdu_type == MODBUS_TCP_PDU_TYPE && res == MODBUS_PACKET_VALID_AND_PROCESSED)
+    {
+        outPack->data[4] = ((outPack->length & 0xff00) >> 8);
+        outPack->data[5] = (outPack->length & 0x00ff);
+        outPack->length += offset;
+    }
+    if(pdu_type == MODBUS_RTU_PDU_TYPE && res == MODBUS_PACKET_VALID_AND_PROCESSED)
     {
         tmpCRC = calc_crc_buf(0xFFFF, outPack->data, outPack->length);
 #ifndef MODBUS_CRC_LITTLE_ENDIAN
@@ -51,25 +64,34 @@ uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack)
 }
 //------------------------------------------------------------------------------------------------------------------------------
 //=== Анализ Modbus-команды ===//
-int process_modbus(ComMessage* inPack, ComMessage* outPack)
+int process_modbus(ComMessage* inPack, ComMessage* outPack, int pdu_type)
 {
     int res = MODBUS_PACKET_VALID_AND_PROCESSED;
-    outPack->data[0] = inPack->data[0];
-    outPack->data[1] = inPack->data[1];
-    switch(inPack->data[1])
+    int offset = 0;
+    if(pdu_type == MODBUS_TCP_PDU_TYPE)
+    {
+        offset = MODBUS_TCP_HEADER_OFFSET;
+        outPack->data[0] = inPack->data[0];
+        outPack->data[1] = inPack->data[1];
+        outPack->data[2] = inPack->data[2];
+        outPack->data[3] = inPack->data[3];
+    }
+    outPack->data[0+offset] = inPack->data[0+offset];
+    outPack->data[1+offset] = inPack->data[1+offset];
+    switch(inPack->data[1+offset])
     {		// Байт команды.
     case 3:		// <03> holding registers read.
     case 4:		// <04> input registers read.
-        res = CmdModbus_03_04(inPack, outPack);
+        res = CmdModbus_03_04(inPack, outPack,offset);
         break;
     case 6:		// <06> single holding register write.
-        res = CmdModbus_06(inPack, outPack);
+        res = CmdModbus_06(inPack, outPack,offset);
         break;
     case 8:   // <08> loopback
-        res = CmdModbus_08(inPack, outPack);
+        res = CmdModbus_08(inPack, outPack,offset);
         break;
     case 16:		// <16> multiple holding registers write.
-        res = CmdModbus_16(inPack, outPack);
+        res = CmdModbus_16(inPack, outPack,offset);
         break;
     default:
         break;
@@ -78,34 +100,34 @@ int process_modbus(ComMessage* inPack, ComMessage* outPack)
 }
 //------------------------------------------------------------------------------------------------------------------------------
 //=== <Modbus_03_04> holding/input registers read ===//
-int CmdModbus_03_04(ComMessage* inPack, ComMessage* outPack)
+int CmdModbus_03_04(ComMessage* inPack, ComMessage* outPack, int offset)
 {
     uint16_t Len, addr;
-    Len = 2*(inPack->data[5]+((uint16_t)inPack->data[4] << 8));		// bytes to read
-    if(Len >= TXRX_BUFFER_SIZE - 3) 
-        Len = TXRX_BUFFER_SIZE-4;		// preventing segfault
-    addr=((uint16_t)inPack->data[2] << 8) + inPack->data[3];		// first register to read
+    Len = 2*(inPack->data[5+offset]+((uint16_t)inPack->data[4+offset] << 8));		// bytes to read
+    if(Len >= TXRX_BUFFER_SIZE - 3-offset) 
+        Len = TXRX_BUFFER_SIZE-4-offset;		// preventing segfault
+    addr=((uint16_t)inPack->data[2+offset] << 8) + inPack->data[3+offset];		// first register to read
     if((addr + Len/2) > MBHR_SPACE_SIZE)
         return MODBUS_REGISTER_NUMBER_INVALID;
-    outPack->data[2] = Len;		// number of bytes.
+    outPack->data[2+offset] = Len;		// number of bytes.
     outPack->length = 3 + Len;		// reply length
     for(int i = 0; i < Len; i += 2)
     {		
         // filling data
         uint16_t val = MODBUS_HR[addr];
-        *(uint16_t*)&outPack->data[3+i] = SWAP16(val);		// Big endian here
+        *(uint16_t*)&outPack->data[3+offset+i] = SWAP16(val);		// Big endian here
         addr++;
     }
     return MODBUS_PACKET_VALID_AND_PROCESSED;
 }
 //------------------------------------------------------------------------------------------------------------------------------
 //=== <Modbus_06> single holding register write ===//
-int CmdModbus_06(ComMessage* inPack, ComMessage* outPack)
+int CmdModbus_06(ComMessage* inPack, ComMessage* outPack, int offset)
 {
     uint16_t Len, addr;
     uint8_t res = 0;
     outPack->length = 6;		// reply length
-    addr=((uint16_t)inPack->data[2] << 8) + inPack->data[3];		// address to write
+    addr=((uint16_t)inPack->data[2+offset] << 8) + inPack->data[3+offset];		// address to write
     if(addr > MBHR_SPACE_SIZE-1) 
         return MODBUS_REGISTER_NUMBER_INVALID;		// preventing segfault  
     int wrtbl=1;
@@ -113,7 +135,7 @@ int CmdModbus_06(ComMessage* inPack, ComMessage* outPack)
         wrtbl = isregwrtbl_cb(addr);
     if(!wrtbl)
         return MODBUS_REGISTER_WRITE_PROTECTED;
-    uint16_t val = ((uint16_t)inPack->data[4] << 8) + inPack->data[5];		// value to write
+    uint16_t val = ((uint16_t)inPack->data[4+offset] << 8) + inPack->data[5+offset];		// value to write
     MODBUS_HR[addr]= val;
     if(regwr_cb)
         res = regwr_cb(addr);
@@ -122,31 +144,34 @@ int CmdModbus_06(ComMessage* inPack, ComMessage* outPack)
         //
     }
     for(int i = 1; i < 6; i++) 
-        outPack->data[i] = inPack->data[i];		// copy some bytes to reply
+        outPack->data[i+offset] = inPack->data[i+offset];		// copy some bytes to reply
     return MODBUS_PACKET_VALID_AND_PROCESSED;
 }
 //------------------------------------------------------------------------------------------------------------------------------
 //=== <Modbus_08> loopback ===//
-int CmdModbus_08(ComMessage* inPack, ComMessage* outPack)
+int CmdModbus_08(ComMessage* inPack, ComMessage* outPack, int offset)
 {
-    outPack->length = inPack->length-2;
+    if(!offset)
+        outPack->length = inPack->length-2;
+    else
+        outPack->length = inPack->length;
     for(int i = 0; i < outPack->length; i++)
     {
-        outPack->data[i] = inPack->data[i];
+        outPack->data[i+offset] = inPack->data[i+offset];
     }
     return MODBUS_PACKET_VALID_AND_PROCESSED;
 }
 //------------------------------------------------------------------------------------------------------------------------------
 //=== <Modbus_16> multiple holding registers write ===//
-int CmdModbus_16(ComMessage* inPack, ComMessage* outPack)
+int CmdModbus_16(ComMessage* inPack, ComMessage* outPack, int offset)
 {
     uint16_t addr;
     int res = 0;
     outPack->length = 6;		// reply length
-    addr=((uint16_t)inPack->data[2] << 8) + inPack->data[3];		// first register to copy
+    addr=((uint16_t)inPack->data[2+offset] << 8) + inPack->data[3+offset];		// first register to copy
     if(addr > MBHR_SPACE_SIZE-1) 
         return MODBUS_REGISTER_NUMBER_INVALID;		// preventing segfault
-    uint16_t cnt = inPack->data[4];		// registers number
+    uint16_t cnt = inPack->data[4+offset];		// registers number
     if(addr + cnt > MBHR_SPACE_SIZE) 
         return MODBUS_REGISTER_NUMBER_INVALID;    // preventing segfault
     for(int i = 0; i < cnt; i++)
@@ -157,7 +182,7 @@ int CmdModbus_16(ComMessage* inPack, ComMessage* outPack)
             wrtbl = isregwrtbl_cb(addr);
         if(!wrtbl)
             return MODBUS_REGISTER_WRITE_PROTECTED;
-        MODBUS_HR[addr]=((uint16_t)inPack->data[5+2*i]<<8) + inPack->data[6+2*i];		// and another register value
+        MODBUS_HR[addr]=((uint16_t)inPack->data[5+2*i+offset]<<8) + inPack->data[6+2*i+offset];		// and another register value
         if(regwr_cb)
             res = regwr_cb(addr);
         if(res)//if callback failed
@@ -165,7 +190,7 @@ int CmdModbus_16(ComMessage* inPack, ComMessage* outPack)
         addr++;
     }
     for(int i = 1; i < 6; i++) 
-        outPack->data[i] = inPack->data[i];   // copy to reply
+        outPack->data[i+offset] = inPack->data[i+offset];   // copy to reply
     return MODBUS_PACKET_VALID_AND_PROCESSED;
 }
 //------------------------------------------------------------------------------------------------------------------------------
