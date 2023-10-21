@@ -182,7 +182,8 @@ int CmdModbus_16(ComMessage* inPack, ComMessage* outPack, int offset)
             wrtbl = isregwrtbl_cb(addr);
         if(!wrtbl)
             return MODBUS_REGISTER_WRITE_PROTECTED;
-        a_store(MODBUS_HR[addr], (((uint16_t)inPack->data[5+2*i+offset]<<8) + inPack->data[6+2*i+offset]));		// and another register value
+        uint16_t val = (((uint16_t)inPack->data[5+2*i+offset]<<8) + inPack->data[6+2*i+offset]);
+        a_store(MODBUS_HR[addr], val);// and another register value
         if(regwr_cb)
             res = regwr_cb(addr);
         if(res)//if callback failed
