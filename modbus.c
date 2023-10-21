@@ -10,6 +10,10 @@
 #include "modbus_config.h"
 #include "modbus.h"
 //------------------------------------------------------------------------------------------------------------------------------
+#ifdef FREERTOS
+#include "freertos_atomic.h"
+#endif
+//------------------------------------------------------------------------------------------------------------------------------
 uint16_t MODBUS_HR[MBHR_SPACE_SIZE];
 #ifdef WRITABLE_MASK_ARRAY_DECLARATION
 uint8_t MODBUS_WRITABLE_MASK[MBHR_SPACE_SIZE/sizeof(uint8_t)+(MBHR_SPACE_SIZE%sizeof(uint8_t))?1:0];
@@ -17,10 +21,6 @@ uint8_t MODBUS_WRITABLE_MASK[MBHR_SPACE_SIZE/sizeof(uint8_t)+(MBHR_SPACE_SIZE%si
 uint16_t* MyMBAddr=NULL; // main program may or may not initialise it
 register_cb isregwrtbl_cb = NULL; // main program may or may not initialise it
 register_cb regwr_cb = NULL; // main program may or may not initialise it
-//------------------------------------------------------------------------------------------------------------------------------
-extern uint8_t modbus_crc16H[];
-//------------------------------------------------------------------------------------------------------------------------------
-extern uint8_t modbus_crc16L[];
 //------------------------------------------------------------------------------------------------------------------------------
 uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack, int pdu_type)
 {
@@ -114,7 +114,7 @@ int CmdModbus_03_04(ComMessage* inPack, ComMessage* outPack, int offset)
     for(int i = 0; i < Len; i += 2)
     {		
         // filling data
-        uint16_t val = MODBUS_HR[addr];
+        uint16_t val = a_load(MODBUS_HR[addr]);
         *(uint16_t*)&outPack->data[3+offset+i] = SWAP16(val);		// Big endian here
         addr++;
     }
@@ -136,7 +136,7 @@ int CmdModbus_06(ComMessage* inPack, ComMessage* outPack, int offset)
     if(!wrtbl)
         return MODBUS_REGISTER_WRITE_PROTECTED;
     uint16_t val = ((uint16_t)inPack->data[4+offset] << 8) + inPack->data[5+offset];		// value to write
-    MODBUS_HR[addr]= val;
+    a_store(MODBUS_HR[addr], val);
     if(regwr_cb)
         res = regwr_cb(addr);
     if(res)//if callback failed
@@ -182,7 +182,7 @@ int CmdModbus_16(ComMessage* inPack, ComMessage* outPack, int offset)
             wrtbl = isregwrtbl_cb(addr);
         if(!wrtbl)
             return MODBUS_REGISTER_WRITE_PROTECTED;
-        MODBUS_HR[addr]=((uint16_t)inPack->data[5+2*i+offset]<<8) + inPack->data[6+2*i+offset];		// and another register value
+        a_store(MODBUS_HR[addr], (((uint16_t)inPack->data[5+2*i+offset]<<8) + inPack->data[6+2*i+offset]));		// and another register value
         if(regwr_cb)
             res = regwr_cb(addr);
         if(res)//if callback failed
