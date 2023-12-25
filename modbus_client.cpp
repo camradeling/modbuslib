@@ -6,7 +6,7 @@ extern uint8_t modbus_crc16L[];
 //----------------------------------------------------------------------------------------------------------------------
 uint16_t ModbusClient::calc_crc(uint8_t *arr, int length) 
 {
-    return calc_crc_buf(0xFFFF, arr, length);
+    return calc_crc_buf(MODBUS_CRC_START_VALUE, arr, length);
 }
 //----------------------------------------------------------------------------------------------------------------------
 void ModbusClient::wrap_pdu(std::vector<uint8_t>* data)
