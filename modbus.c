@@ -10,9 +10,9 @@
 #include "modbus_config.h"
 #include "modbus.h"
 //------------------------------------------------------------------------------------------------------------------------------
-#ifdef FREERTOS
+//#ifdef FREERTOS
 #include "freertos_atomic.h"
-#endif
+//#endif
 //------------------------------------------------------------------------------------------------------------------------------
 uint16_t MODBUS_HR[MBHR_SPACE_SIZE];
 #ifdef WRITABLE_MASK_ARRAY_DECLARATION
