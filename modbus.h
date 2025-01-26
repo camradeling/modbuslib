@@ -8,15 +8,22 @@
 //----------------------------------------------------------------------------------------------------------------------
 #define SWAP16(x) (((uint16_t)x << 8)|((uint16_t)x >> 8))
 //----------------------------------------------------------------------------------------------------------------------
-typedef struct
+typedef struct __attribute__((packed))
 {
     uint8_t data[TXRX_BUFFER_SIZE];
     uint16_t length;
-}ComMessage;
+} ComMessage;
 //----------------------------------------------------------------------------------------------------------------------
 typedef int (*register_cb)(uint16_t regnum);
 //----------------------------------------------------------------------------------------------------------------------
-//return codes
+// function codes
+#define MODBUS_READ_HOLDING_REGISTERS       3
+#define MODBUS_READ_INPUT_REGISTERS         4
+#define MODBUS_WRITE_SINGLE_REGISTER        6
+#define MODBUS_LOOPBACK                     8
+#define MODBUS_WRITE_MULTIPLE_REGISTERS     16
+//----------------------------------------------------------------------------------------------------------------------
+// return codes
 #define MODBUS_PACKET_VALID_AND_PROCESSED               0
 #define MODBUS_PACKET_WRONG_ADDR                        1
 #define MODBUS_PACKET_WRONG_CRC                         2
@@ -26,17 +33,33 @@ typedef int (*register_cb)(uint16_t regnum);
 //----------------------------------------------------------------------------------------------------------------------
 #define MODBUS_CRC_START_VALUE                          0xffff
 #define MB_BROADCAST_ADDR                               0xff
-#define MODBUS_PACKET_SLAVE_ADDRESS_POSITION            0
-#define MODBUS_PACKET_FUNCTION_CODE_POSITION            1
+//----------------------------------------------------------------------------------------------------------------------
+#define MODBUS_REQUEST_SLAVE_ADDRESS_POSITION           0
+#define MODBUS_REQUEST_FUNCTION_CODE_POSITION           1
+#define MODBUS_REQUEST_REGISTER_ADDRESS_POSITION        2
+#define MODBUS_REQUEST_REGISTER_VALUE_POSITION          4
+#define MODBUS_REQUEST_REGISTER_NUMBER_POSITION         MODBUS_REQUEST_REGISTER_VALUE_POSITION
+#define MODBUS_REQUEST_BYTES_NUMBER_POSITION            6
+#define MODBUS_REQUEST_REGISTER_DATA_START              7
+//----------------------------------------------------------------------------------------------------------------------
 #define MODBUS_03_LENGTH_IND                            2
 #define MODBUS_03_DATASTART_IND                         3
 #define MODBUS_06_DATASTART_IND                         4
 #define MODBUS_03_1REG_REPLY_LEN_NO_CRC                 5
 #define MAX_REGS_BATCH_WRITE                            64
+#define MAX_REGS_TO_WRITE                               123
 //----------------------------------------------------------------------------------------------------------------------
 #define MODBUS_RTU_PDU_TYPE         1
 #define MODBUS_TCP_PDU_TYPE         2
 #define MODBUS_TCP_HEADER_OFFSET    6
+//----------------------------------------------------------------------------------------------------------------------
+typedef struct __attribute__((packed))
+{
+    uint16_t transaction_id;
+    uint16_t protocol_id;
+    uint16_t length;
+    uint8_t  unit_id;
+} mbap_header_s;
 //----------------------------------------------------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C"

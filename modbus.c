@@ -27,11 +27,11 @@ uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack, int pdu_type
     int offset = (pdu_type == MODBUS_TCP_PDU_TYPE) ? MODBUS_TCP_HEADER_OFFSET : 0;
     if(MyMBAddr != NULL)
     {
-        if(inPack->data[MODBUS_PACKET_SLAVE_ADDRESS_POSITION+offset] != *MyMBAddr 
-                && inPack->data[MODBUS_PACKET_SLAVE_ADDRESS_POSITION+offset] != MB_BROADCAST_ADDR)
+        if(inPack->data[MODBUS_REQUEST_SLAVE_ADDRESS_POSITION+offset] != *MyMBAddr 
+                && inPack->data[MODBUS_REQUEST_SLAVE_ADDRESS_POSITION+offset] != MB_BROADCAST_ADDR)
             return MODBUS_PACKET_WRONG_ADDR;
     }
-    else if(inPack->data[MODBUS_PACKET_SLAVE_ADDRESS_POSITION+offset] != MB_BROADCAST_ADDR)
+    else if(inPack->data[MODBUS_REQUEST_SLAVE_ADDRESS_POSITION+offset] != MB_BROADCAST_ADDR)
         return MODBUS_PACKET_WRONG_ADDR;
     uint16_t tmpCRC;
     if(pdu_type != MODBUS_TCP_PDU_TYPE)
@@ -75,21 +75,21 @@ int process_modbus(ComMessage* inPack, ComMessage* outPack, int pdu_type)
         outPack->data[2] = inPack->data[2];
         outPack->data[3] = inPack->data[3];
     }
-    outPack->data[MODBUS_PACKET_SLAVE_ADDRESS_POSITION+offset] = inPack->data[MODBUS_PACKET_SLAVE_ADDRESS_POSITION+offset];
-    outPack->data[MODBUS_PACKET_FUNCTION_CODE_POSITION+offset] = inPack->data[MODBUS_PACKET_FUNCTION_CODE_POSITION+offset];
-    switch(inPack->data[MODBUS_PACKET_FUNCTION_CODE_POSITION+offset])
+    outPack->data[MODBUS_REQUEST_SLAVE_ADDRESS_POSITION+offset] = inPack->data[MODBUS_REQUEST_SLAVE_ADDRESS_POSITION+offset];
+    outPack->data[MODBUS_REQUEST_FUNCTION_CODE_POSITION+offset] = inPack->data[MODBUS_REQUEST_FUNCTION_CODE_POSITION+offset];
+    switch(inPack->data[MODBUS_REQUEST_FUNCTION_CODE_POSITION+offset])
     {		// Байт команды.
-    case 3:		// <03> holding registers read.
-    case 4:		// <04> input registers read.
+    case MODBUS_READ_HOLDING_REGISTERS:		// <03> holding registers read.
+    case MODBUS_READ_INPUT_REGISTERS:		// <04> input registers read.
         res = CmdModbus_03_04(inPack, outPack,offset);
         break;
-    case 6:		// <06> single holding register write.
+    case MODBUS_WRITE_SINGLE_REGISTER:		// <06> single holding register write.
         res = CmdModbus_06(inPack, outPack,offset);
         break;
-    case 8:   // <08> loopback
+    case MODBUS_LOOPBACK:   // <08> loopback
         res = CmdModbus_08(inPack, outPack,offset);
         break;
-    case 16:		// <16> multiple holding registers write.
+    case MODBUS_WRITE_MULTIPLE_REGISTERS:		// <16> multiple holding registers write.
         res = CmdModbus_16(inPack, outPack,offset);
         break;
     default:
