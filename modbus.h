@@ -26,6 +26,8 @@ typedef int (*register_cb)(uint16_t regnum);
 //----------------------------------------------------------------------------------------------------------------------
 #define MODBUS_CRC_START_VALUE                          0xffff
 #define MB_BROADCAST_ADDR                               0xff
+#define MODBUS_PACKET_SLAVE_ADDRESS_POSITION            0
+#define MODBUS_PACKET_FUNCTION_CODE_POSITION            1
 #define MODBUS_03_LENGTH_IND                            2
 #define MODBUS_03_DATASTART_IND                         3
 #define MODBUS_06_DATASTART_IND                         4

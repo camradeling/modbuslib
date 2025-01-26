@@ -24,15 +24,14 @@ register_cb regwr_cb = NULL; // main program may or may not initialise it
 //------------------------------------------------------------------------------------------------------------------------------
 uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack, int pdu_type)
 {
-    int offset = 0;
-    if(pdu_type == MODBUS_TCP_PDU_TYPE)
-        offset = MODBUS_TCP_HEADER_OFFSET;
+    int offset = (pdu_type == MODBUS_TCP_PDU_TYPE) ? MODBUS_TCP_HEADER_OFFSET : 0;
     if(MyMBAddr != NULL)
     {
-        if(inPack->data[0+offset] != *MyMBAddr && inPack->data[0+offset] != MB_BROADCAST_ADDR)
+        if(inPack->data[MODBUS_PACKET_SLAVE_ADDRESS_POSITION+offset] != *MyMBAddr 
+                && inPack->data[MODBUS_PACKET_SLAVE_ADDRESS_POSITION+offset] != MB_BROADCAST_ADDR)
             return MODBUS_PACKET_WRONG_ADDR;
     }
-    else if(inPack->data[0+offset] != MB_BROADCAST_ADDR)
+    else if(inPack->data[MODBUS_PACKET_SLAVE_ADDRESS_POSITION+offset] != MB_BROADCAST_ADDR)
         return MODBUS_PACKET_WRONG_ADDR;
     uint16_t tmpCRC;
     if(pdu_type != MODBUS_TCP_PDU_TYPE)
@@ -76,9 +75,9 @@ int process_modbus(ComMessage* inPack, ComMessage* outPack, int pdu_type)
         outPack->data[2] = inPack->data[2];
         outPack->data[3] = inPack->data[3];
     }
-    outPack->data[0+offset] = inPack->data[0+offset];
-    outPack->data[1+offset] = inPack->data[1+offset];
-    switch(inPack->data[1+offset])
+    outPack->data[MODBUS_PACKET_SLAVE_ADDRESS_POSITION+offset] = inPack->data[MODBUS_PACKET_SLAVE_ADDRESS_POSITION+offset];
+    outPack->data[MODBUS_PACKET_FUNCTION_CODE_POSITION+offset] = inPack->data[MODBUS_PACKET_FUNCTION_CODE_POSITION+offset];
+    switch(inPack->data[MODBUS_PACKET_FUNCTION_CODE_POSITION+offset])
     {		// Байт команды.
     case 3:		// <03> holding registers read.
     case 4:		// <04> input registers read.
