@@ -42,6 +42,14 @@ typedef int (*register_cb)(uint16_t regnum);
 #define MODBUS_REQUEST_BYTES_NUMBER_POSITION            6
 #define MODBUS_REQUEST_REGISTER_DATA_START              7
 //----------------------------------------------------------------------------------------------------------------------
+#define MODBUS_REPLY_SLAVE_ADDRESS_POSITION             0
+#define MODBUS_REPLY_FUNCTION_CODE_POSITION             1
+#define MODBUS_REPLY_BYTES_NUMBER_POSITION              2
+#define MODBUS_REPLY_REGISTER_DATA_START                3
+#define MODBUS_REPLY_REGISTER_ADDRESS_POSITION          2
+#define MODBUS_REPLY_REGISTER_VALUE_POSITION            4
+#define MODBUS_REPLY_REGISTER_NUMBER_POSITION           MODBUS_REPLY_REGISTER_VALUE_POSITION
+//----------------------------------------------------------------------------------------------------------------------
 #define MODBUS_03_LENGTH_IND                            2
 #define MODBUS_03_DATASTART_IND                         3
 #define MODBUS_06_DATASTART_IND                         4
@@ -49,8 +57,12 @@ typedef int (*register_cb)(uint16_t regnum);
 #define MAX_REGS_BATCH_WRITE                            64
 #define MAX_REGS_TO_WRITE                               123
 //----------------------------------------------------------------------------------------------------------------------
-#define MODBUS_RTU_PDU_TYPE         1
-#define MODBUS_TCP_PDU_TYPE         2
+enum modbus_pdu_type_e
+{
+    MODBUS_RTU_PDU_TYPE = 1,
+    MODBUS_TCP_PDU_TYPE
+};
+//----------------------------------------------------------------------------------------------------------------------
 #define MODBUS_TCP_HEADER_OFFSET    6
 //----------------------------------------------------------------------------------------------------------------------
 typedef struct __attribute__((packed))
