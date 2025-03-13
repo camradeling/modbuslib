@@ -17,10 +17,13 @@ typedef struct __attribute__((packed))
 typedef int (*register_cb)(uint16_t regnum);
 //----------------------------------------------------------------------------------------------------------------------
 // function codes
+#define MODBUS_READ_COIL_STATUS             1
 #define MODBUS_READ_HOLDING_REGISTERS       3
 #define MODBUS_READ_INPUT_REGISTERS         4
+#define MODBUS_FORCE_SINGLE_COIL            5
 #define MODBUS_WRITE_SINGLE_REGISTER        6
 #define MODBUS_LOOPBACK                     8
+#define MODBUS_FORCE_MULTIPLE_COILS         15
 #define MODBUS_WRITE_MULTIPLE_REGISTERS     16
 //----------------------------------------------------------------------------------------------------------------------
 // return codes
@@ -84,7 +87,11 @@ uint16_t calc_crc_buf(uint16_t startvalue, uint8_t *arr, int length);
 //----------------------------------------------------------------------------------------------------------------------
 int process_modbus(ComMessage* inPack, ComMessage* outPack, int pdu_type);
 //----------------------------------------------------------------------------------------------------------------------
+int CmdModbus_01(ComMessage* inPack, ComMessage* outPack, int offset);
+//----------------------------------------------------------------------------------------------------------------------
 int CmdModbus_03_04(ComMessage* inPack, ComMessage* outPack, int offset);
+//----------------------------------------------------------------------------------------------------------------------
+int CmdModbus_05(ComMessage* inPack, ComMessage* outPack, int offset);
 //----------------------------------------------------------------------------------------------------------------------
 int CmdModbus_06(ComMessage* inPack, ComMessage* outPack, int offset);
 //----------------------------------------------------------------------------------------------------------------------

@@ -79,23 +79,67 @@ int process_modbus(ComMessage* inPack, ComMessage* outPack, int pdu_type)
     outPack->data[MODBUS_REQUEST_FUNCTION_CODE_POSITION+offset] = inPack->data[MODBUS_REQUEST_FUNCTION_CODE_POSITION+offset];
     switch(inPack->data[MODBUS_REQUEST_FUNCTION_CODE_POSITION+offset])
     {		// Байт команды.
+    case MODBUS_READ_COIL_STATUS:
+        res = CmdModbus_01(inPack, outPack, offset)
+        break;
     case MODBUS_READ_HOLDING_REGISTERS:		// <03> holding registers read.
     case MODBUS_READ_INPUT_REGISTERS:		// <04> input registers read.
-        res = CmdModbus_03_04(inPack, outPack,offset);
+        res = CmdModbus_03_04(inPack, outPack, offset);
+        break;
+    case MODBUS_FORCE_SINGLE_COIL:
+        res = CmdModbus_05(inPack, outPack, offset);
         break;
     case MODBUS_WRITE_SINGLE_REGISTER:		// <06> single holding register write.
-        res = CmdModbus_06(inPack, outPack,offset);
+        res = CmdModbus_06(inPack, outPack, offset);
         break;
     case MODBUS_LOOPBACK:   // <08> loopback
-        res = CmdModbus_08(inPack, outPack,offset);
+        res = CmdModbus_08(inPack, outPack, offset);
         break;
     case MODBUS_WRITE_MULTIPLE_REGISTERS:		// <16> multiple holding registers write.
-        res = CmdModbus_16(inPack, outPack,offset);
+        res = CmdModbus_16(inPack, outPack, offset);
         break;
     default:
         break;
     }
     return res;
+}
+//------------------------------------------------------------------------------------------------------------------------------
+//=== <Modbus_01> coils read ===//
+int CmdModbus_01(ComMessage* inPack, ComMessage* outPack, int offset)
+{
+    uint16_t addr, numCoils;
+    uint8_t byteCount, bitMask;
+    uint8_t res = 0;
+
+    // Extract the starting address of the coils from the request
+    addr = ((uint16_t)inPack->data[2 + offset] << 8) + inPack->data[3 + offset];
+
+    // Extract the number of coils to read from the request
+    numCoils = ((uint16_t)inPack->data[4 + offset] << 8) + inPack->data[5 + offset];
+
+    // Validate the address and the number of coils
+    if (addr > MB_COIL_SPACE_SIZE - 1 || addr + numCoils > MB_COIL_SPACE_SIZE)
+        return MODBUS_REGISTER_NUMBER_INVALID; // Return error if address or number of coils is invalid
+
+    // Calculate the number of bytes required to store the coil statuses
+    byteCount = (numCoils + 7) / 8;
+    outPack->length = 3 + byteCount; // Response length: 3 bytes (header) + data bytes
+
+    // Prepare the response header
+    outPack->data[1 + offset] = 0x01; // Function code
+    outPack->data[2 + offset] = byteCount; // Number of data bytes
+
+    // Read the coil statuses and pack them into bytes
+    for (int i = 0; i < numCoils; i++) {
+        bitMask = (uint8_t)(1 << (i % 8)); // Create a bitmask for the current coil
+        if (MODBUS_COILS[addr + i]) {
+            outPack->data[3 + offset + (i / 8)] |= bitMask; // Set the bit if the coil is ON
+        } else {
+            outPack->data[3 + offset + (i / 8)] &= ~bitMask; // Clear the bit if the coil is OFF
+        }
+    }
+
+    return MODBUS_PACKET_VALID_AND_PROCESSED; // Return success
 }
 //------------------------------------------------------------------------------------------------------------------------------
 //=== <Modbus_03_04> holding/input registers read ===//
@@ -118,6 +162,43 @@ int CmdModbus_03_04(ComMessage* inPack, ComMessage* outPack, int offset)
         addr++;
     }
     return MODBUS_PACKET_VALID_AND_PROCESSED;
+}
+//------------------------------------------------------------------------------------------------------------------------------
+//=== <Modbus_05> single coil write ===//
+int CmdModbus_05(ComMessage* inPack, ComMessage* outPack, int offset)
+{
+    uint16_t addr;
+    uint8_t res = 0;
+
+    // Extract the coil address from the request
+    addr = ((uint16_t)inPack->data[2 + offset] << 8) + inPack->data[3 + offset];
+
+    // Validate the coil address
+    if (addr > MB_COIL_SPACE_SIZE - 1)
+        return MODBUS_REGISTER_NUMBER_INVALID; // Return error if the address is invalid
+
+    // Extract the value to write (0xFF00 = ON, 0x0000 = OFF)
+    uint16_t val = ((uint16_t)inPack->data[4 + offset] << 8) + inPack->data[5 + offset];
+    if (val != 0xFF00 && val != 0x0000)
+        return MODBUS_INVALID_VALUE; // Return error if the value is invalid
+
+    // Write the value to the coil
+    MODBUS_COILS[addr] = (val == 0xFF00) ? 1 : 0;
+
+    // Call the write callback (if available) to handle additional logic
+    if (coilwr_cb)
+        res = coilwr_cb(addr);
+    if (res) // If the callback returns an error
+    {
+        // Handle the error (e.g., log it or take corrective action)
+    }
+
+    // Copy the request data to the response (acknowledgment)
+    for (int i = 1; i < 6; i++)
+        outPack->data[i + offset] = inPack->data[i + offset];
+
+    outPack->length = 6; // Set the response length
+    return MODBUS_PACKET_VALID_AND_PROCESSED; // Return success
 }
 //------------------------------------------------------------------------------------------------------------------------------
 //=== <Modbus_06> single holding register write ===//
