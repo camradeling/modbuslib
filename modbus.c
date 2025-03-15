@@ -1,7 +1,7 @@
 //modbus_config.h file should be created and
 //MBHR_SPACE_SIZE and
 //TXRX_BUFFER_SIZE should be defined in it
-//also MODBUS_HR and 
+//also MODBUS_HR, MODBUS_COILS and 
 //MODBUS_WRITABLE_MASK array may be added as extern in the progam
 //------------------------------------------------------------------------------------------------------------------------------
 #include <stdint.h>
@@ -15,12 +15,21 @@
 //#endif
 //------------------------------------------------------------------------------------------------------------------------------
 uint16_t MODBUS_HR[MBHR_SPACE_SIZE];
+uint8_t MODBUS_COILS[MB_COIL_SPACE_SIZE];
 #ifdef WRITABLE_MASK_ARRAY_DECLARATION
 uint8_t MODBUS_WRITABLE_MASK[MBHR_SPACE_SIZE/sizeof(uint8_t)+(MBHR_SPACE_SIZE%sizeof(uint8_t))?1:0];
 #endif
 uint16_t* MyMBAddr=NULL; // main program may or may not initialise it
-register_cb isregwrtbl_cb = NULL; // main program may or may not initialise it
-register_cb regwr_cb = NULL; // main program may or may not initialise it
+static register_cb isregwrtbl_cb = NULL; // main program may or may not initialise it
+static register_cb regwr_cb = NULL; // main program may or may not initialise it
+static register_cb coilwr_cb = NULL;
+//------------------------------------------------------------------------------------------------------------------------------
+void modbus_init_callbacks(register_cb regwrtbl, register_cb regwr, register_cb coilwr)
+{
+    isregwrtbl_cb = regwrtbl;
+    regwr_cb = regwr;
+    coilwr_cb = coilwr;
+}
 //------------------------------------------------------------------------------------------------------------------------------
 uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack, int pdu_type)
 {
@@ -80,7 +89,7 @@ int process_modbus(ComMessage* inPack, ComMessage* outPack, int pdu_type)
     switch(inPack->data[MODBUS_REQUEST_FUNCTION_CODE_POSITION+offset])
     {		// Байт команды.
     case MODBUS_READ_COIL_STATUS:
-        res = CmdModbus_01(inPack, outPack, offset)
+        res = CmdModbus_01(inPack, outPack, offset);
         break;
     case MODBUS_READ_HOLDING_REGISTERS:		// <03> holding registers read.
     case MODBUS_READ_INPUT_REGISTERS:		// <04> input registers read.
