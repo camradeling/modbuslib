@@ -34,6 +34,19 @@ void ModbusPacketConstructor::wrap_pdu(std::vector<uint8_t>* data, int pdu_type,
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
+std::vector<uint8_t> ModbusPacketConstructor::build_force_coil_05_request(uint8_t addr, uint16_t coilnum, uint16_t val, int pdu_type)
+{
+    std::vector<uint8_t> data;
+    data.push_back(addr);
+    data.push_back(0x06);
+    data.push_back((coilnum & 0xff00) >> 8);
+    data.push_back(coilnum & 0x00ff);
+    data.push_back(val ? 0xFF : 0x00);
+    data.push_back(0x00);
+    wrap_pdu(&data, pdu_type, 1);
+    return data;
+}
+//----------------------------------------------------------------------------------------------------------------------
 std::vector<uint8_t> ModbusPacketConstructor::build_write_reg_06_request(uint8_t addr, uint16_t reg,uint16_t val, int pdu_type)
 {
     std::vector<uint8_t> data;
@@ -52,6 +65,19 @@ std::vector<uint8_t> ModbusPacketConstructor::build_loop_08_request(uint8_t addr
     std::vector<uint8_t> data;
     data.push_back(addr);
     data.push_back(0x08);
+    wrap_pdu(&data, pdu_type, 1);
+    return data;
+}
+//----------------------------------------------------------------------------------------------------------------------
+std::vector<uint8_t> ModbusPacketConstructor::build_read_01_request(uint8_t addr, uint16_t coilnum, uint16_t cnt, int pdu_type)
+{
+    std::vector<uint8_t> data;
+    data.push_back(addr);
+    data.push_back(0x01);
+    data.push_back((coilnum & 0xff00) >> 8);
+    data.push_back(coilnum & 0x00ff);
+    data.push_back((cnt & 0xff00) >> 8);
+    data.push_back(cnt & 0x00ff);
     wrap_pdu(&data, pdu_type, 1);
     return data;
 }
@@ -98,6 +124,21 @@ std::vector<uint8_t> ModbusPacketConstructor::build_loop_08_reply(uint16_t id, u
     return data;
 }
 //----------------------------------------------------------------------------------------------------------------------
+std::vector<uint8_t> ModbusPacketConstructor::build_read_01_reply(uint16_t id, uint8_t addr, uint16_t cnt, std::vector<uint16_t> vals, int pdu_type)
+{
+    std::vector<uint8_t> data;
+    data.push_back(addr);
+    data.push_back(0x01);
+    // number of registers * 2 bytes each
+    data.push_back(cnt);
+    for(auto val : vals)
+    {
+        data.push_back(val & 0x00ff);
+    }
+    wrap_pdu(&data, pdu_type, id);
+    return data;
+}
+//----------------------------------------------------------------------------------------------------------------------
 std::vector<uint8_t> ModbusPacketConstructor::build_read_03_reply(uint16_t id, uint8_t addr, uint16_t cnt, std::vector<uint16_t> vals, int pdu_type)
 {
     std::vector<uint8_t> data;
@@ -110,6 +151,19 @@ std::vector<uint8_t> ModbusPacketConstructor::build_read_03_reply(uint16_t id, u
         data.push_back((val & 0xff00) >> 8);
         data.push_back(val & 0x00ff);
     }
+    wrap_pdu(&data, pdu_type, id);
+    return data;
+}
+//----------------------------------------------------------------------------------------------------------------------
+std::vector<uint8_t> ModbusPacketConstructor::build_force_coil_05_reply(uint16_t id, uint8_t addr, uint16_t coilnum, uint16_t val, int pdu_type)
+{
+    std::vector<uint8_t> data;
+    data.push_back(addr);
+    data.push_back(0x05);
+    data.push_back((coilnum & 0xff00) >> 8);
+    data.push_back(coilnum & 0x00ff);
+    data.push_back((val & 0xff00) >> 8);
+    data.push_back(val & 0x00ff);
     wrap_pdu(&data, pdu_type, id);
     return data;
 }
@@ -145,9 +199,13 @@ std::vector<uint8_t> ModbusPacketConstructor::serialize_request(ModbusPDU &req, 
     std::vector<uint8_t> data;
     switch (req.FunctionCode)
     {
+    case MODBUS_READ_COIL_STATUS:
+        return build_read_01_request(req.SlaveAddress, req.reg, req.cnt, pdu_type);
     case MODBUS_READ_HOLDING_REGISTERS:
     case MODBUS_READ_INPUT_REGISTERS:
         return build_read_03_request(req.SlaveAddress, req.reg, req.cnt, pdu_type);
+    case MODBUS_FORCE_SINGLE_COIL:
+        return build_force_coil_05_request(req.SlaveAddress, req.reg, req.values[0], pdu_type);
     case MODBUS_WRITE_SINGLE_REGISTER:
         return build_write_reg_06_request(req.SlaveAddress, req.reg, req.values[0], pdu_type);
     case MODBUS_LOOPBACK:
@@ -164,9 +222,13 @@ std::vector<uint8_t> ModbusPacketConstructor::serialize_reply(ModbusPDU &req, in
     std::vector<uint8_t> data;
     switch (req.FunctionCode)
     {
+    case MODBUS_READ_COIL_STATUS:
+        return build_read_01_reply(req.transactionID, req.SlaveAddress, req.cnt, req.values, pdu_type);
     case MODBUS_READ_HOLDING_REGISTERS:
     case MODBUS_READ_INPUT_REGISTERS:
         return build_read_03_reply(req.transactionID, req.SlaveAddress, req.cnt, req.values, pdu_type);
+    case MODBUS_FORCE_SINGLE_COIL:
+        return build_force_coil_05_reply(req.transactionID, req.SlaveAddress, req.reg, req.values[0], pdu_type);
     case MODBUS_WRITE_SINGLE_REGISTER:
         return build_write_reg_06_reply(req.transactionID, req.SlaveAddress, req.reg, req.values[0], pdu_type);
     case MODBUS_LOOPBACK:
