@@ -38,7 +38,7 @@ std::vector<uint8_t> ModbusPacketConstructor::build_force_coil_05_request(uint8_
 {
     std::vector<uint8_t> data;
     data.push_back(addr);
-    data.push_back(0x06);
+    data.push_back(0x05);
     data.push_back((coilnum & 0xff00) >> 8);
     data.push_back(coilnum & 0x00ff);
     data.push_back(val ? 0xFF : 0x00);
