@@ -1,7 +1,7 @@
 //modbus_config.h file should be created and
 //MBHR_SPACE_SIZE and
 //TXRX_BUFFER_SIZE should be defined in it
-//also MODBUS_HR, MODBUS_COILS and 
+//also MODBUS_HR, MODBUS_COILS and
 //MODBUS_WRITABLE_MASK array may be added as extern in the progam
 //------------------------------------------------------------------------------------------------------------------------------
 #include <stdint.h>
@@ -36,7 +36,7 @@ uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack, int pdu_type
     int offset = (pdu_type == MODBUS_TCP_PDU_TYPE) ? MODBUS_TCP_HEADER_OFFSET : 0;
     if(MyMBAddr != NULL)
     {
-        if(inPack->data[MODBUS_REQUEST_SLAVE_ADDRESS_POSITION+offset] != *MyMBAddr 
+        if(inPack->data[MODBUS_REQUEST_SLAVE_ADDRESS_POSITION+offset] != *MyMBAddr
                 && inPack->data[MODBUS_REQUEST_SLAVE_ADDRESS_POSITION+offset] != MB_BROADCAST_ADDR)
             return MODBUS_PACKET_WRONG_ADDR;
     }
@@ -156,7 +156,7 @@ int CmdModbus_03_04(ComMessage* inPack, ComMessage* outPack, int offset)
 {
     uint16_t Len, addr;
     Len = 2*(inPack->data[5+offset]+((uint16_t)inPack->data[4+offset] << 8));		// bytes to read
-    if(Len >= TXRX_BUFFER_SIZE - 3-offset) 
+    if(Len >= TXRX_BUFFER_SIZE - 3-offset)
         Len = TXRX_BUFFER_SIZE-4-offset;		// preventing segfault
     addr=((uint16_t)inPack->data[2+offset] << 8) + inPack->data[3+offset];		// first register to read
     if((addr + Len/2) > MBHR_SPACE_SIZE)
@@ -164,7 +164,7 @@ int CmdModbus_03_04(ComMessage* inPack, ComMessage* outPack, int offset)
     outPack->data[2+offset] = Len;		// number of bytes.
     outPack->length = 3 + Len;		// reply length
     for(int i = 0; i < Len; i += 2)
-    {		
+    {
         // filling data
         uint16_t val = a_load(MODBUS_HR[addr]);
         *(uint16_t*)&outPack->data[3+offset+i] = SWAP16(val);		// Big endian here
@@ -217,8 +217,8 @@ int CmdModbus_06(ComMessage* inPack, ComMessage* outPack, int offset)
     uint8_t res = 0;
     outPack->length = 6;		// reply length
     addr=((uint16_t)inPack->data[2+offset] << 8) + inPack->data[3+offset];		// address to write
-    if(addr > MBHR_SPACE_SIZE-1) 
-        return MODBUS_REGISTER_NUMBER_INVALID;		// preventing segfault  
+    if(addr > MBHR_SPACE_SIZE-1)
+        return MODBUS_REGISTER_NUMBER_INVALID;		// preventing segfault
     int wrtbl=1;
     if(isregwrtbl_cb)
         wrtbl = isregwrtbl_cb(addr);
@@ -232,7 +232,7 @@ int CmdModbus_06(ComMessage* inPack, ComMessage* outPack, int offset)
     {
         //
     }
-    for(int i = 1; i < 6; i++) 
+    for(int i = 1; i < 6; i++)
         outPack->data[i+offset] = inPack->data[i+offset];		// copy some bytes to reply
     return MODBUS_PACKET_VALID_AND_PROCESSED;
 }
@@ -258,13 +258,13 @@ int CmdModbus_16(ComMessage* inPack, ComMessage* outPack, int offset)
     int res = 0;
     outPack->length = 6;		// reply length
     addr=((uint16_t)inPack->data[2+offset] << 8) + inPack->data[3+offset];		// first register to copy
-    if(addr > MBHR_SPACE_SIZE-1) 
+    if(addr > MBHR_SPACE_SIZE-1)
         return MODBUS_REGISTER_NUMBER_INVALID;		// preventing segfault
     uint16_t cnt = inPack->data[4+offset];		// registers number
-    if(addr + cnt > MBHR_SPACE_SIZE) 
+    if(addr + cnt > MBHR_SPACE_SIZE)
         return MODBUS_REGISTER_NUMBER_INVALID;    // preventing segfault
     for(int i = 0; i < cnt; i++)
-    {		
+    {
         // filling the date.
         int wrtbl=1;
         if(isregwrtbl_cb)
@@ -279,7 +279,7 @@ int CmdModbus_16(ComMessage* inPack, ComMessage* outPack, int offset)
             return MODBUS_REGISTER_WRITE_CALLBACK_FAILED;
         addr++;
     }
-    for(int i = 1; i < 6; i++) 
+    for(int i = 1; i < 6; i++)
         outPack->data[i+offset] = inPack->data[i+offset];   // copy to reply
     return MODBUS_PACKET_VALID_AND_PROCESSED;
 }
