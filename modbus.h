@@ -14,7 +14,7 @@ typedef struct __attribute__((packed))
     uint16_t length;
 } ComMessage;
 //----------------------------------------------------------------------------------------------------------------------
-typedef int (*register_cb)(uint16_t regnum);
+typedef int (*register_cb)(uint16_t regnum); //same signature for coils
 //----------------------------------------------------------------------------------------------------------------------
 // function codes
 #define MODBUS_READ_COIL_STATUS             1
@@ -32,7 +32,8 @@ typedef int (*register_cb)(uint16_t regnum);
 #define MODBUS_PACKET_WRONG_CRC                         2
 #define MODBUS_REGISTER_WRITE_PROTECTED                 3
 #define MODBUS_REGISTER_NUMBER_INVALID                  4
-#define MODBUS_REGISTER_WRITE_CALLBACK_FAILED           5
+#define MODBUS_INVALID_VALUE                            5
+#define MODBUS_REGISTER_WRITE_CALLBACK_FAILED           6
 //----------------------------------------------------------------------------------------------------------------------
 #define MODBUS_CRC_START_VALUE                          0xffff
 #define MB_BROADCAST_ADDR                               0xff
@@ -80,6 +81,8 @@ typedef struct __attribute__((packed))
 extern "C"
 {
 #endif
+//----------------------------------------------------------------------------------------------------------------------
+void modbus_init_callbacks(register_cb regwrtbl, register_cb regwr, register_cb coilwr);
 //----------------------------------------------------------------------------------------------------------------------
 uint8_t process_net_packet(ComMessage* inPack, ComMessage* outPack, int pdu_type);
 //----------------------------------------------------------------------------------------------------------------------
